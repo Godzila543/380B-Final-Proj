@@ -87,11 +87,112 @@ void configureSensor(Adafruit_TSL2561_Unified &sensor)
 
 void loop()
 {
-  // put your main code here, to run repeatedly:
+  // Read lux values from all sensors
+  float lux1 = readLux(sensor1);
+  float lux2 = readLux(sensor2);
+  float lux3 = readLux(sensor3);
+
+  // Print lux values for debugging
+  Serial.print("Sensor 1: ");
+  Serial.print(lux1);
+  Serial.println(" lux");
+  Serial.print("Sensor 2: ");
+  Serial.print(lux2);
+  Serial.println(" lux");
+  Serial.print("Sensor 3: ");
+  Serial.print(lux3);
+  Serial.println(" lux");
+
+  // Calculate gradient vector
+  float gradientX, gradientY;
+  calculateGradient(lux1, lux2, lux3, gradientX, gradientY);
+
+  // Calculate angle from gradient vector
+  float angle = atan2(gradientY, gradientX) * 180.0 / PI;
+
+  // Convert angle to servo position (0-180)
+  // Map the angle (-180 to 180) to servo range (0-180)
+  int servoPosition = map(angle, -180, 180, 0, 180);
+
+  Serial.print("Gradient direction: ");
+  Serial.print(angle);
+  Serial.println(" degrees");
+
+  Serial.print("Servo position: ");
+  Serial.println(servoPosition);
+
+  // Move servo to point in the direction of increasing light
+  trackingServo.write(servoPosition);
+
+  // Add a small delay
+  delay(500);
+
+  Serial.println();
 }
 
-// put function definitions here:
-int myFunction(int x, int y)
+float readLux(Adafruit_TSL2561_Unified &sensor)
 {
-  return x + y;
+  sensors_event_t event;
+  sensor.getEvent(&event);
+
+  // Check if reading is valid
+  if (event.light)
+  {
+    return event.light;
+  }
+  else
+  {
+    Serial.println("Error reading light value!");
+    return 0;
+  }
+}
+
+// Calculate the gradient of light field using the three sensor readings
+void calculateGradient(float lux1, float lux2, float lux3, float &gradientX, float &gradientY)
+{
+  // This function calculates the gradient vector of the light field
+  // using a planar approximation from three sensor readings
+
+  // Create matrices for least squares solution to find the plane
+  // We're solving for a plane of the form: lux = a*x + b*y + c
+  // Where (a,b) is our gradient vector
+
+  // Matrix form: [x, y, 1] * [a, b, c]^T = [lux]
+
+  // Simple calculation for the plane coefficients (gradient)
+  // Using the formula from planar interpolation
+  float denominator = (sensor1Pos[0] * (sensor2Pos[1] - sensor3Pos[1]) +
+                       sensor2Pos[0] * (sensor3Pos[1] - sensor1Pos[1]) +
+                       sensor3Pos[0] * (sensor1Pos[1] - sensor2Pos[1]));
+
+  if (abs(denominator) < 0.0001)
+  {
+    // Handle the case where sensors are collinear
+    gradientX = 0;
+    gradientY = 0;
+    return;
+  }
+
+  // Calculate partial derivatives (gradient components)
+  gradientX = (lux1 * (sensor2Pos[1] - sensor3Pos[1]) +
+               lux2 * (sensor3Pos[1] - sensor1Pos[1]) +
+               lux3 * (sensor1Pos[1] - sensor2Pos[1])) /
+              denominator;
+
+  gradientY = (lux1 * (sensor3Pos[0] - sensor2Pos[0]) +
+               lux2 * (sensor1Pos[0] - sensor3Pos[0]) +
+               lux3 * (sensor2Pos[0] - sensor1Pos[0])) /
+              denominator;
+
+  // Normalize gradient direction (but keep magnitude for strength)
+  float magnitude = sqrt(gradientX * gradientX + gradientY * gradientY);
+
+  if (magnitude > 0)
+  {
+    // We keep the magnitude information for potential future use
+    // but normalize for consistency in direction
+    float normFactor = magnitude;
+    gradientX /= normFactor;
+    gradientY /= normFactor;
+  }
 }
