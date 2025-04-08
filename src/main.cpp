@@ -26,9 +26,9 @@ Servo trackingServo;
 
 // Sensor positions (x,y) in cm relative to center
 // Assuming a triangular pattern with sensors at the corners
-const float sensor1Pos[2] = {0.0, 5.0};   // Top
-const float sensor2Pos[2] = {-5.0, -5.0}; // Bottom left
-const float sensor3Pos[2] = {5.0, -5.0};  // Bottom right
+const float sensor1Pos[2] = {-1.0, 7.2};   // Top
+const float sensor2Pos[2] = {-5.0, -7.2}; // Bottom left
+const float sensor3Pos[2] = {-4.7, -7.2};  // Bottom right
 
 void setup()
 {
