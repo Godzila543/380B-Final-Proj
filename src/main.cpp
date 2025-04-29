@@ -10,7 +10,7 @@
 #include "sensors.h"
 #include "gradient.h"
 #include "display.h"
-#include "servo_control.h"
+// #include "servo_control.h"
 #include "temperature.h"
 #include "ourSD.h"
 
@@ -22,19 +22,19 @@ uSD sdCard(false); // SD card object with debug mode enabled
 
 void setup()
 {
-    Serial.begin(9600);
+    Serial.begin(115200);
     Serial.println(F("Light Gradient Tracking System"));
 
-    Wire.setClock(100000); // Set I2C frequency to 100kHz
+    Wire.setClock(400000); // Set I2C frequency to 100kHz
     Wire.begin();
 
     // Initialize subsystems
     initSensors();
-    initServo();
+    // initServo();
     initDisplay();
     initTemp();
     sdCard.setup();
-    // sdCard.write_data("Time, Lux1, Lux2, Lux3, Angle, Temp, Humidity\n");
+    sdCard.write_data("Time (ms), Lux1, Lux2, Lux3, Angle (degrees), Temp (celcius), Humidity (Relative %)\n");
 
     // normalizeSensorPos();
 
@@ -63,32 +63,16 @@ void loop()
     float temp = tempInC();
     float humidityValue = humidity();
 
-    // Print debug info
-    // Serial.print(F("Sensor readings (lux): "));
-    // Serial.print(data.lux1);
-    // Serial.print(F(", "));
-    // Serial.print(data.lux2);
-    // Serial.print(F(", "));
-    // Serial.println(data.lux3);
-
-    Serial.print(F("Gradient direction: "));
-    Serial.print(angle);
-    Serial.println(F(" degrees"));
-
-    // Serial.print(F("Servo position: "));
-    // Serial.println(servoPosition);
-
-    // Move servo
-    setServoAngle(servoPosition);
-
     // Update display
     updateDisplay(angle, avgLux, data, temp, humidityValue);
 
     // Write data to SD card
-    char buffer[100];
+    char buffer[1000];
     snprintf(buffer, sizeof(buffer), "%ld, %.2f, %.2f, %.2f, %.2f, %.2f, %.2f\n",
              millis(), data.lux1, data.lux2, data.lux3, currentAngle, temp, humidityValue);
     sdCard.write_data(buffer);
+
+    sdCard.loop();
 
     // Small delay
     // delay(500);
