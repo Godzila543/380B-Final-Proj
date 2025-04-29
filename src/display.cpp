@@ -63,8 +63,8 @@ void initDisplay()
     // --- Optimization: Draw static elements once ---
     display.setCursor(0, 0);
     display.println(F("Light Tracker"));
-    display.drawLine(0, 10, 70, 10, SSD1306_WHITE); // Adjusted line length
-    display.drawLine(70, 0, 70, 64, SSD1306_WHITE); // Adjusted divider position
+    display.drawLine(0, 10, 80, 10, SSD1306_WHITE); // Adjusted line length
+    // display.drawLine(80, 0, 80, 64, SSD1306_WHITE); // Adjusted divider position
     // --- End Optimization ---
 
     display.display(); // Show static elements
