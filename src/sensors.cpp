@@ -1,5 +1,5 @@
 /*
- * Sensors implementation
+ * Sensors implementation - Optimized for speed
  */
 
 #include "sensors.h"
@@ -37,20 +37,25 @@ void initSensors()
     configureSensor(sensor2);
     configureSensor(sensor3);
 
-    Serial.println(F("All sensors initialized"));
+    Serial.println(F("All sensors initialized for fast reading"));
 }
 
 void configureSensor(Adafruit_TSL2561_Unified &sensor)
 {
-    // You can change the gain and integration time based on your light conditions
-    sensor.enableAutoRange(true); // Auto-gain
+    // --- SPEED OPTIMIZATION ---
 
-    // Alternatively, set manual gain:
-    // sensor.setGain(TSL2561_GAIN_1X);      // No gain (bright light)
-    // sensor.setGain(TSL2561_GAIN_16X);     // 16x gain (dim light)
+    // 1. Disable auto-range - it's slower because it does multiple readings
+    sensor.enableAutoRange(false);
 
-    // Set integration time
-    sensor.setIntegrationTime(TSL2561_INTEGRATIONTIME_13MS);
+    // 2. Set to fastest integration time (13ms) - major speed improvement
+    sensor.setIntegrationTime(TSL2561_INTEGRATIONTIME_13MS); // 13ms is fastest
+
+    // 3. Choose appropriate gain setting
+    // For normal indoor lighting, TSL2561_GAIN_1X works well and is faster
+    // For low light conditions, you might need TSL2561_GAIN_16X
+    sensor.setGain(TSL2561_GAIN_1X); // No gain (faster response)
+
+    // --- END SPEED OPTIMIZATION ---
 }
 
 float readLux(Adafruit_TSL2561_Unified &sensor)
@@ -58,14 +63,15 @@ float readLux(Adafruit_TSL2561_Unified &sensor)
     sensors_event_t event;
     sensor.getEvent(&event);
 
-    // Check if reading is valid
+    // Avoid Serial printing in timing-critical code
     if (event.light)
     {
         return event.light;
     }
     else
     {
-        Serial.println(F("Error reading light value!"));
+        // Use a constant return value instead of Serial printing
+        // Serial.println(F("Error reading light value!"));
         return 0;
     }
 }
