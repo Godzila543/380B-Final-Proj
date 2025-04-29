@@ -1,121 +1,121 @@
 /*
- * OLED Display implementation using U8g2
+ * OLED Display implementation using Adafruit SSD1306
  */
 
 #include <Wire.h>
-#include <U8g2lib.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "display.h"
 #include "config.h"
 
-// Using a constructor with explicit I2C address and lower memory usage (page buffer mode)
-// The 1 at the end means page buffer mode (uses less RAM than full buffer 'F' mode)
-U8G2_SSD1306_128X64_NONAME_1_HW_I2C u8g2(U8G2_R0, U8X8_PIN_NONE, 0x3C);
+// Define the display dimensions
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+
+// Display object with the I2C address 0x3C
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
 void initDisplay()
 {
-    // Set lower I2C speed to avoid power issues
-    // Wire.setClock(100000); // Use 100kHz instead of default 400kHz
-    // Wire.begin();
-    // delay(100); // Short delay to let I2C settle
-
     Serial.println(F("Starting display initialization..."));
 
-    // Initialize with a more minimal setup
-    u8g2.begin();
-    Serial.println(F("Display initialized"));
-
-    // Continue with setup (minimal version)
-    u8g2.setFont(u8g2_font_5x8_tf); // A smaller font uses less RAM
-
-    // Simple initial display message
-    u8g2.firstPage();
-    do
+    // SSD1306_SWITCHCAPVCC = generate display voltage from 3.3V internally
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C))
     {
-        u8g2.drawStr(0, 0, "Starting...");
-    } while (u8g2.nextPage());
+        Serial.println(F("SSD1306 allocation failed"));
+        // Keep trying until it works - this will hang if the display is missing
+        while (true)
+        {
+            delay(100);
+        }
+    }
+
+    // Clear the buffer
+    display.clearDisplay();
+
+    // Set text properties
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+
+    // Show initial display message
+    display.println(F("Starting..."));
+    display.display();
+
+    Serial.println(F("Display initialized"));
 }
 
 void updateDisplay(float angle, float avgLux, const SensorData &data, float temp, float humidityValue)
 {
-    // Using page buffer mode - start drawing sequence
-    u8g2.firstPage();
-    do
-    {
-        char buffer[24]; // Larger buffer to be safe
+    // Clear the display
+    display.clearDisplay();
 
-        // Title
-        u8g2.setFont(u8g2_font_5x8_tf);
-        u8g2.drawStr(0, 10, "Light Tracker");
-        u8g2.drawLine(0, 12, 70, 12);
-        u8g2.drawLine(70, 0, 70, 64);
+    // Title
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(0, 0);
+    display.println(F("Light Tracker"));
 
-        // Convert values to integers to avoid sprintf float issues
-        int angleInt = (int)angle;
-        int angleFrac = (int)((angle - angleInt) * 10);
+    // Draw horizontal line below title
+    display.drawLine(0, 10, 78, 10, SSD1306_WHITE);
 
-        int luxInt = (int)avgLux;
-        int luxFrac = (int)((avgLux - luxInt) * 10);
+    // Draw vertical divider line
+    display.drawLine(78, 0, 78, 64, SSD1306_WHITE);
 
-        int tempInt = (int)temp;
-        int tempFrac = (int)((temp - tempInt) * 10);
+    // Display values
+    char buffer[24];
 
-        int humInt = (int)humidityValue;
-        int humFrac = (int)((humidityValue - humInt) * 10);
+    // Show angle
+    display.setCursor(0, 15);
+    snprintf(buffer, sizeof(buffer), "Ang: %.1f", angle);
+    display.println(buffer);
 
-        // Show angle using integer arithmetic to avoid float formatting issues
-        snprintf(buffer, sizeof(buffer), "Ang: %d.%d", angleInt, angleFrac);
-        u8g2.drawStr(0, 20, buffer);
+    // Show average lux
+    display.setCursor(0, 25);
+    snprintf(buffer, sizeof(buffer), "Lux: %.1f", avgLux);
+    display.println(buffer);
 
-        // Show average lux
-        snprintf(buffer, sizeof(buffer), "Lux: %d.%d", luxInt, luxFrac);
-        u8g2.drawStr(0, 30, buffer);
+    // Show temperature
+    display.setCursor(0, 35);
+    snprintf(buffer, sizeof(buffer), "Tmp: %.1f", temp);
+    display.println(buffer);
 
-        // Show temperature
-        snprintf(buffer, sizeof(buffer), "Tmp: %d.%d", tempInt, tempFrac);
-        u8g2.drawStr(0, 40, buffer);
+    // Show humidity
+    display.setCursor(0, 45);
+    snprintf(buffer, sizeof(buffer), "Hum: %.1f", humidityValue);
+    display.println(buffer);
 
-        // Show humidity
-        snprintf(buffer, sizeof(buffer), "Hum: %d.%d", humInt, humFrac);
-        u8g2.drawStr(0, 50, buffer);
+    // Draw direction indicator with arrow
+    const int cx = 105; // center x
+    const int cy = 32;  // center y
+    const int r = 25;   // radius
 
-        // Simple direction indicator with arrow
-        const int cx = 100;
-        const int cy = 32;
-        const int r = 25;
+    // Draw circle
+    display.drawCircle(cx, cy, r, SSD1306_WHITE);
 
-        // Convert angle to radians for drawing
-        float rad = angle * PI / 180.0;
+    // Calculate arrow tip position
+    float rad = angle * PI / 180.0;
+    int arrowX = cx + r * cos(rad);
+    int arrowY = cy - r * sin(rad); // Y is inverted in screen coordinates
 
-        // Calculate the tip of the arrow
-        int arrowX = cx + r * cos(rad);
-        int arrowY = cy - r * sin(rad);
+    // Draw the line from center to tip
+    display.drawLine(cx, cy, arrowX, arrowY, SSD1306_WHITE);
 
-        // Draw the main line
-        u8g2.drawLine(cx, cy, arrowX, arrowY);
+    // Draw arrow head (triangle)
+    const int headSize = 6;
+    float perpRad = rad + PI / 2;
 
-        // Draw the circle
-        u8g2.drawCircle(cx, cy, r);
+    // Calculate triangle points
+    int x1 = arrowX;
+    int y1 = arrowY;
+    int x2 = arrowX - headSize * cos(rad) + (headSize / 2) * cos(perpRad);
+    int y2 = arrowY + headSize * sin(rad) - (headSize / 2) * sin(perpRad);
+    int x3 = arrowX - headSize * cos(rad) - (headSize / 2) * cos(perpRad);
+    int y3 = arrowY + headSize * sin(rad) + (headSize / 2) * sin(perpRad);
 
-        // Draw arrow head (triangle at the tip)
-        // Calculate perpendicular angle for the arrow head
-        float perpRad = rad + PI / 2;
+    // Draw triangle
+    display.fillTriangle(x1, y1, x2, y2, x3, y3, SSD1306_WHITE);
 
-        // Arrow head size
-        const int headSize = 9;
-
-        // Calculate points for triangle
-        int x1 = arrowX;
-        int y1 = arrowY;
-
-        // Calculate the other two points of the triangle
-        int x2 = arrowX - headSize * cos(rad) + (headSize / 2) * cos(perpRad);
-        int y2 = arrowY + headSize * sin(rad) - (headSize / 2) * sin(perpRad);
-
-        int x3 = arrowX - headSize * cos(rad) - (headSize / 2) * cos(perpRad);
-        int y3 = arrowY + headSize * sin(rad) + (headSize / 2) * sin(perpRad);
-
-        // Draw triangle for arrow head
-        u8g2.drawTriangle(x1, y1, x2, y2, x3, y3);
-
-    } while (u8g2.nextPage());
+    // Send the buffer to the display
+    display.display();
 }
