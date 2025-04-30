@@ -13,6 +13,8 @@
 // #include "servo_control.h"
 #include "temperature.h"
 #include "ourSD.h"
+// #include "date.h"
+#include "RTClib.h"
 
 // Global variables
 float currentAngle = 90.0;    // Starting angle
@@ -21,6 +23,8 @@ float currentTemp = 25.0;     // Default temperature value
 float currentHumidity = 50.0; // Default humidity value
 
 uSD sdCard(false); // SD card object with debug mode enabled
+
+RTC_DS1307 rtc;
 
 // Timing variables
 unsigned long timeSensors = 0;
@@ -53,7 +57,7 @@ void setup()
     initDisplay();
     initTemp();
     sdCard.setup();
-    sdCard.write_data("Time (ms), Lux1, Lux2, Lux3, Angle (degrees), Temp (celcius), Humidity (Relative %)\n");
+    sdCard.write_data("Datestamp, Time (ms), Lux1, Lux2, Lux3, Angle (degrees), Temp (celcius), Humidity (Relative %)\n");
 
     // Take initial temperature and humidity readings
     currentTemp = tempInC();
@@ -61,12 +65,34 @@ void setup()
 
     delay(100);
     Serial.println("Setup complete. Starting loop profiling...");
+
+    if (!rtc.begin())
+    {
+        Serial.println("Couldn't find RTC");
+        Serial.flush();
+        while (1)
+            delay(10);
+    }
+
+    if (!rtc.isrunning())
+    {
+        Serial.println("RTC is NOT running, let's set the time!");
+        // When time needs to be set on a new device, or after a power loss, the
+        // following line sets the RTC to the date & time this sketch was compiled
+        rtc.adjust(DateTime(F(__DATE__), F(__TIME__)));
+        // This line sets the RTC with an explicit date & time, for example to set
+        // January 21, 2014 at 3am you would call:
+        // rtc.adjust(DateTime(2014, 1, 21, 3, 0, 0));
+    }
 }
 
 void loop()
 {
     loopStartTime = micros(); // Start timing the entire loop
 
+    DateTime time = rtc.now();
+    sdCard.write_data(String(time.timestamp(DateTime::TIMESTAMP_FULL)).c_str());
+    sdCard.write_data(", ");
     // --- Read sensor data ---
     unsigned long start = micros();
     SensorData data = readAllSensors();
